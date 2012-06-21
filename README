@@ -1,0 +1,10 @@
+Crib Copyright (C) 2012 Bob Dahlberg
+
+This program comes with ABSOLUTELY NO WARRANTY; for details see http://www.gnu.org/licenses (GNU GPLv3)
+This is free software, and you are welcome to redistribute it under certain conditions.
+
+Crib stands for "Centralized housing of Resource and Inversion of control with lazy Binding".
+This actually describes a lot of what this small class is doing. It foremost houses your classes so that you in an easy fashion can require them throughout your application.
+Thanks to the inversion of control, the classes that are never required is never instanciated. 
+The lazy binding makes sure that all implementation required from the crib gets its own reference to the crib and an init call to be able to bind/connect/initialize before being sent out to the function that required it.
+

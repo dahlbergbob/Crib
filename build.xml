@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<project name="Boblu as libs" basedir="." default="help">
+	
+	<property file="${basedir}/build/build.properties"/>
+	<property file="${buildnumber}"/>
+	<property environment="env"/>
+	
+	<taskdef resource="flexTasks.tasks" classpath="${flex.task}" />
+	<taskdef resource="flexUnitTasks.tasks" classpath="${flexunit.task}" />
+	
+	<target name="help">
+		<echo level="info"><![CDATA[Notifier application build file
+available targets:
+ help 		(shows this help message)
+ test 		(runs the unit tests)
+ testless 		(runs the unit tests headless, linux only)
+ test-junit		(runs the unit tests and then creates a JUnit style report from the result)
+ release 		(builds debug and release swc's)
+ example-debug 	(builds the example swf in debug mode)
+ example-release	(builds the example swf in release mode)]]></echo>
+	</target>
+	
+	<!-- BUILDING SWC'S -->
+	<target name="release" description="Compile swc's">
+		<buildnumber file="${buildnumber}" />
+		<input message="Set the current version (skip to use current):" defaultvalue="${build.version}" addproperty="version" />
+		<replaceregexp file="${buildnumber}" match="build.version=(.*)" replace="build.version=${version}" />
+		<echo message="Building Crib v${version}, buildnumber: ${build.number}" />
+		<compile-swc debug="false" />
+		<compile-swc debug="true" extra="-debug" />
+		<echo message="All swc's compiled successfully" />
+		<package />
+		<echo message="Release build packaged and zipped" />
+	</target>
+
+	<macrodef name="compile-swc">
+		<attribute name="debug" default="true" />
+		<attribute name="extra" default="" />
+		<sequential>
+			<echo message="Compile Crib Library" />
+			<compc output="${code.out}/${buildname}.swc" target-player="${player.version}" incremental="false">
+				<source-path path-element="${main.src}" />
+				<include-sources dir="${main.src}/com/boblu/crib" includes="**/*.as" />
+				<define name="CONFIG::debug" value="@{debug}" />
+			</compc>
+			<move file="${code.out}/${buildname}.swc" tofile="${code.out}/${name} ${version}_${build.number}@{extra}.swc" />
+		</sequential>
+	</macrodef>
+	
+	<macrodef name="package" description="Packages the swc's with the readme and the license in a zip">
+		<sequential>
+			<delete>
+				<fileset dir="${code.out}">
+					<include name="*.zip" />
+				</fileset>
+			</delete>
+			
+			<copy todir="${code.out}/${name} ${version}_${build.number}">
+				<fileset dir="${code.out}">
+					<include name="*.swc" />
+				</fileset>
+				<fileset dir="${basedir}">
+					<include name="license.txt" />
+					<include name="README" />
+				</fileset>
+			</copy>
+			<zip destfile="${code.out}/${name} ${version}_${build.number}.zip" basedir="${code.out}/${name} ${version}_${build.number}" />
+			<delete dir="${code.out}/${name} ${version}_${build.number}" />
+		</sequential>
+	</macrodef>
+		
+	
+	
+	
+	<!-- EXAMPLE BUILDING -->
+	<target name="example-debug" description="Build Crib Example (debug)">
+		<mxmlc output="${code.out}/example/crib-example-debug.swf" file="${main.src}/Main.as" debug="true" target-player="${player.version}" static-link-runtime-shared-libraries="true">
+			<source-path path-element="${main.src}" />
+			<define name="CONFIG::debug" value="true"/>
+		</mxmlc>
+	</target>
+
+	<target name="example-release" description="Build Crib Example (release)">
+		<mxmlc output="${code.out}/example/crib-example-release.swf" file="${main.src}/Main.as" debug="false" target-player="${player.version}" static-link-runtime-shared-libraries="true">
+			<source-path path-element="${main.src}" />
+			<define name="CONFIG::debug" value="false"/>
+		</mxmlc>
+	</target>
+	
+	
+	<!-- UNIT TESTING -->
+	<target name="-test-clean" description="deletes test files">
+		<delete dir="${ci.base}" />	
+	</target>
+	
+	<target name="-test-compile" description="Build keyboard mapper lib">
+		<mxmlc output="${unittest.output}" file="${basedir}/src/test/Test.as" debug="true" target-player="${player.version}" static-link-runtime-shared-libraries="true">
+			<source-path path-element="${basedir}/src/main" />
+			<source-path path-element="${basedir}/src/test" />
+			<define name="CONFIG::debug" value="true" />
+			<compiler.library-path dir="${basedir}/lib" append="true">
+				<include name="**/*.swc" />
+			</compiler.library-path>
+		</mxmlc>
+	</target>
+
+	<target name="-test-build-structure" description="create folders upfront">
+		<mkdir dir="${ci.base}" />
+		<mkdir dir="${ci.bin}" />
+		<mkdir dir="${ci.report}" />
+	</target>
+	
+	
+	<target name="test" depends="-test-clean,-test-compile,-test-build-structure" description="Runs the test suite via flex unit">
+		<flexunit-run />
+		<antcall target="-test-clean" />
+	</target>
+
+	<target name="testless" depends="-test-clean,-test-compile,-test-build-structure" description="Runs the test suite via flex unit headless">
+		<flexunit-run headless="true" />
+	</target>
+
+	<target name="test-junit" depends="-test-clean,-test-compile,-test-build-structure" description="Runs the test suite via flex and creates an HTML-report">
+		<flexunit-run halt="false" />
+		<!-- Generate readable JUnit-style reports for CI integrations? -->
+		<junitreport todir="${ci.report}">
+			<fileset dir="${ci.report}">
+				<include name="TEST-*.xml"/>
+			</fileset>
+			<report format="frames" todir="${ci.report}/html"/>
+		</junitreport>
+	</target>
+	
+	<macrodef name="flexunit-run">
+		<attribute name="halt" default="true" />
+		<attribute name="verbose" default="false" />
+		<attribute name="headless" default="false" />
+		<sequential>
+			<flexunit headless="@{headless}" workingDir="${ci.bin}" toDir="${ci.report}" haltonfailure="@{halt}" verbose="@{verbose}" localTrusted="true" swf="${unittest.output}" />
+		</sequential>
+	</macrodef>
+	
+</project>
